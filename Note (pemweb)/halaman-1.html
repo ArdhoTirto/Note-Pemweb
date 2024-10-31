@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Design</title>
+    <link rel="stylesheet" href="tampilan-1.css">
+</head>
+<body>
+
+    <div class="header">
+        <div class="title-container">
+            <div class="title">Note</div>
+        </div>
+        <div class="search-container">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search">
+                <button id="search-button"><img src="cari.png" alt="Search Icon"></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notes-container" id="notes-container">
+    </div>
+
+    <div class="add-note">
+        <button id="add-note-button">+</button>
+    </div>
+
+    <div class="popup add-note-popup" id="popup">
+        <div class="popup-content">
+            <div class="popup-header">New Note</div>
+            <div class="popup-body">
+                <input type="text" id="note-title" placeholder="Judul Catatan" class="popup-title-input">
+                <textarea id="note-text" placeholder="Tulis catatan di sini..."></textarea>
+            </div>
+            <div class="popup-footer">
+                <button onclick="closePopup()">Kembali</button>
+                <button onclick="saveNote()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup view-note-popup" id="view-popup" style="display: none;">
+        <div class="popup-content">
+            <div class="popup-header" id="view-popup-title"></div>
+            <div class="popup-body">
+                <textarea id="view-popup-text" readonly></textarea>
+            </div>
+            <div class="popup-footer">
+                <button onclick="enableEdit()">Edit</button>
+                <button onclick="deleteNote()">Hapus</button>
+                <button onclick="closeViewPopup()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNoteElement = null;
+        let originalText = ""; 
+
+        function openPopup() {
+            document.getElementById("popup").style.display = "flex";
+        }
+
+        function closePopup() {
+            document.getElementById("popup").style.display = "none";
+        }
+
+        function saveNote() {
+            const noteTitle = document.getElementById('note-title').value || 'Untitled Note';
+            const noteText = document.getElementById('note-text').value;
+
+            const newNote = document.createElement('div');
+            newNote.classList.add('note');
+            newNote.dataset.content = noteText;
+
+            const noteHeader = document.createElement('div');
+            noteHeader.classList.add('note-header');
+            noteHeader.textContent = noteTitle;
+            newNote.appendChild(noteHeader);
+            
+            const noteContent = document.createElement('div');
+            noteContent.classList.add('note-content');
+            const line = document.createElement('p');
+            line.textContent = noteText || 'No content';
+            noteContent.appendChild(line);
+            newNote.appendChild(noteContent);
+
+            newNote.addEventListener('click', function() {
+                openViewPopup(noteTitle, newNote.dataset.content, newNote);
+            });
+            
+            document.getElementById('notes-container').appendChild(newNote);
+            document.getElementById('note-title').value = '';
+            document.getElementById('note-text').value = '';
+            closePopup();
+
+            saveNotesToLocalStorage();
+        }
+
+        function openViewPopup(title, text, noteElement) {
+            document.getElementById('view-popup-title').textContent = title;
+            document.getElementById('view-popup-text').value = text;
+            document.getElementById('view-popup-text').setAttribute('readonly', true);
+            document.getElementById('view-popup').style.display = "flex";
+
+            currentNoteElement = noteElement;
+            originalText = text; 
+        }
+
+        function enableEdit() {
+            const textArea = document.getElementById('view-popup-text');
+            textArea.removeAttribute('readonly');
+            textArea.style.backgroundColor = "#ffffff"; 
+
+            const footer = document.querySelector(".view-note-popup .popup-footer");
+            footer.innerHTML = `
+                <button onclick="saveEditedNote()">Simpan</button>
+                <button onclick="cancelEdit()">Batal</button>
+                <button onclick="deleteNote()">Hapus</button>
+            `;
+        }
+
+        function saveEditedNote() {
+            const newText = document.getElementById('view-popup-text').value;
+
+            if (currentNoteElement) {
+                currentNoteElement.querySelector('.note-content p').textContent = newText;
+                currentNoteElement.dataset.content = newText;
+            }
+
+            const footer = document.querySelector(".view-note-popup .popup-footer");
+            footer.innerHTML = `
+                <button onclick="enableEdit()">Edit</button>
+                <button onclick="deleteNote()">Hapus</button>
+                <button onclick="closeViewPopup()">Tutup</button>
+            `;
+
+            closeViewPopup();
+            saveNotesToLocalStorage();
+        }
+
+        function cancelEdit() {
+            const textArea = document.getElementById('view-popup-text');
+            textArea.value = originalText; 
+            textArea.setAttribute('readonly', true);
+            textArea.style.backgroundColor = "#ffffff"; 
+
+            const footer = document.querySelector(".view-note-popup .popup-footer");
+            footer.innerHTML = `
+                <button onclick="enableEdit()">Edit</button>
+                <button onclick="deleteNote()">Hapus</button>
+                <button onclick="closeViewPopup()">Tutup</button>
+            `;
+        }
+
+        function closeViewPopup() {
+            document.getElementById("view-popup").style.display = "none";
+        }
+
+        function deleteNote() {
+            if (currentNoteElement) {
+                currentNoteElement.remove();
+                saveNotesToLocalStorage();
+                closeViewPopup();
+            }
+        }
+
+        function searchNotes() {
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            const notes = document.querySelectorAll('.note');
+            notes.forEach(note => {
+                const title = note.querySelector('.note-header').textContent.toLowerCase();
+                const content = note.dataset.content.toLowerCase();
+                
+                if (title.includes(searchText) || content.includes(searchText)) {
+                    note.style.display = 'block';
+                } else {
+                    note.style.display = 'none';
+                }
+            });
+        }
+
+        function saveNotesToLocalStorage() {
+            const notes = [];
+            const noteElements = document.querySelectorAll('.note');
+
+            noteElements.forEach(note => {
+                const title = note.querySelector('.note-header').textContent;
+                const content = note.dataset.content;
+                notes.push({ title, content });
+            });
+
+            localStorage.setItem('notes', JSON.stringify(notes));
+        }
+
+        function loadNotesFromLocalStorage() {
+            const notes = JSON.parse(localStorage.getItem('notes')) || [];
+            notes.forEach(note => {
+                const newNote = document.createElement('div');
+                newNote.classList.add('note');
+                newNote.dataset.content = note.content;
+
+                const noteHeader = document.createElement('div');
+                noteHeader.classList.add('note-header');
+                noteHeader.textContent = note.title;
+                newNote.appendChild(noteHeader);
+                
+                const noteContent = document.createElement('div');
+                noteContent.classList.add('note-content');
+                const line = document.createElement('p');
+                line.textContent = note.content || 'No content';
+                noteContent.appendChild(line);
+                newNote.appendChild(noteContent);
+
+                newNote.addEventListener('click', function() {
+                    openViewPopup(note.title, newNote.dataset.content, newNote);
+                });
+                
+                document.getElementById('notes-container').appendChild(newNote);
+            });
+        }
+
+        document.getElementById('add-note-button').addEventListener('click', openPopup);
+        document.getElementById('search-input').addEventListener('input', searchNotes);
+        window.onload = loadNotesFromLocalStorage;
+
+    </script>
+
+</body>
+</html>
